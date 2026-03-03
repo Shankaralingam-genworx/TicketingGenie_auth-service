@@ -12,7 +12,7 @@ from src.api.rest.routes import auth_routes, health_routes, role_routes, user_ro
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
-        title="Ticketing Genie – Auth Service"
+        title="Ticketing Genie – Auth Service welcome"
     )
 
     # Middleware (order matters: logging wraps everything)
