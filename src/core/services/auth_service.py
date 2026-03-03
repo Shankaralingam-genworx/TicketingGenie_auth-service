@@ -43,12 +43,12 @@ class AuthService:
         existing = await self.user_repo.get_by_email(data.email)
         if existing:
             raise UserAlreadyExistsException()
-
+    
         # Get the CUSTOMER role
         role = await self.role_repo.get_by_name(RoleName.CUSTOMER.value)
         if not role:
             raise RuntimeError("CUSTOMER role not found. Make sure roles are seeded.")
-
+    
         # Create the user
         password_hash = hash_password(data.password)
         user = await self.user_repo.create(
@@ -57,14 +57,15 @@ class AuthService:
             password_hash=password_hash,
             role_id=role.id,
         )
-
-        # Create the customer profile
+    
+        # Create the customer profile with tier and preferred contact
         await self.customer_repo.create(
             user_id=user.id,
             phone=data.phone,
-            company_name=data.company_name,
+            customer_tier=data.customer_tier,
+            preferred_contact=data.preferred_contact,
         )
-
+    
         # Issue tokens
         return await self._issue_tokens(user.id, data.email, RoleName.CUSTOMER.value)
        
@@ -108,7 +109,7 @@ class AuthService:
             raise InvalidTokenException("Refresh token not found")
 
     async def _issue_tokens(
-     self, user_id: str, user_email: str, user_role: str) -> tuple[TokenResponse, str]:
+     self, user_id: int, user_email: str, user_role: str) -> tuple[TokenResponse, str]:
         
      """Create tokens and return response + refresh token separately."""
      

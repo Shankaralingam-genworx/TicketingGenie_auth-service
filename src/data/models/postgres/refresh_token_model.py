@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.data.clients.postgres_client import Base
@@ -12,10 +12,10 @@ from src.data.clients.postgres_client import Base
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid.uuid4())
-    )
-    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True,autoincrement=True)
+    
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     token: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)

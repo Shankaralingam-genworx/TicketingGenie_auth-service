@@ -1,16 +1,21 @@
 """Pydantic schemas for customer registration and profile."""
 
 from datetime import datetime
-
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, Field
+from src.constants.customer_constants import CustomerTier, PreferredContact
 
 
 class CustomerRegisterRequest(BaseModel):
-    name: str
-    email: EmailStr
-    password: str
-    phone: str | None = None
-    company_name: str | None = None
+    name: str = Field(..., description="Full name of the customer")
+    email: EmailStr = Field(..., description="Customer email")
+    password: str = Field(..., description="Password, minimum 8 characters")
+    phone: str | None = Field(None, description="Optional phone number")
+    customer_tier: CustomerTier = Field(
+        CustomerTier.BASIC, description="Customer tier: BASIC, PREMIUM, STANDARD"
+    )
+    preferred_contact: PreferredContact = Field(
+        PreferredContact.EMAIL, description="Preferred contact method: EMAIL or WEB"
+    )
 
     @field_validator("password")
     @classmethod
@@ -21,17 +26,17 @@ class CustomerRegisterRequest(BaseModel):
 
 
 class CustomerProfileResponse(BaseModel):
-    id: str
-    user_id: str
+    id: int
+    user_id: int
     phone: str | None
-    company_name: str | None
-    created_at: datetime
+    customer_tier: CustomerTier
+    preferred_contact: PreferredContact
 
     model_config = {"from_attributes": True}
 
 
 class CurrentUserResponse(BaseModel):
-    id: str
+    id: int
     name: str
     email: str
     role: str

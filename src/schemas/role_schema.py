@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class RoleResponse(BaseModel):
-    id: str
+    id: int
     name: str
     created_at: datetime
 

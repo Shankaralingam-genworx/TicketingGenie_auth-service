@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String,Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.data.clients.postgres_client import Base
@@ -12,13 +12,13 @@ from src.data.clients.postgres_client import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
+    
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
-    role_id: Mapped[str] = mapped_column(String, ForeignKey("roles.id"), nullable=False)
+    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -32,3 +32,17 @@ class User(Base):
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(  # noqa: F821
         "RefreshToken", back_populates="user"
     )
+    
+    # Teams where user is the team lead
+    led_teams: Mapped[list["Team"]] = relationship(  # noqa: F821
+        "Team",
+        back_populates="team_lead",
+        foreign_keys="Team.team_lead_id",
+    )
+    
+    # Teams where user is a member
+    team_memberships: Mapped[list["TeamMember"]] = relationship(  # noqa: F821
+        "TeamMember",
+        back_populates="user",
+        cascade="all, delete-orphan",
+)

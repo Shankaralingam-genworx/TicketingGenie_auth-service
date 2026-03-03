@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: int
     name: str
     email: EmailStr
     role: str
