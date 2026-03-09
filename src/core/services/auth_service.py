@@ -78,8 +78,15 @@ class AuthService:
 
         if not user.is_active:
             raise InvalidCredentialsException("Account is deactivated")
+        
+        customer_tier = None
+        team_id = None
+        if user.role == "customer":
+            customer_tier = user.customer.customer_tier
+        elif user.role == "support_agent" or user.role == "team_lead":
+            team_id = user.led_teams.team_id
 
-        return await self._issue_tokens(user.id,user.email,user.role.name)
+        return await self._issue_tokens(user.id,user.email,user.role.name,customer_tier,team_id)
 
     async def refresh_access_token(self, refresh_token: str) -> AccessTokenResponse:
         """Exchange a valid refresh token for a new access token."""
@@ -97,10 +104,23 @@ class AuthService:
         if token_record.expires_at < datetime.now(timezone.utc):
             raise InvalidTokenException("Refresh token has expired")
 
-        user_id = payload["sub"]
-        role = payload["role"]
-        access_token = create_access_token(user_id, role)
-        return AccessTokenResponse(access_token=access_token)
+        user_id = payload.get("sub")
+        role = payload.get("role")
+        email = payload.get("email")
+        customer_tier = payload.get("customer_tier")
+        team_id =  payload.get("team_id")
+        print("="*10)
+        print(email)
+        access_token = create_access_token(user_id,email, role,customer_tier,team_id)
+        return AccessTokenResponse(access_token=access_token,
+                                    user=UserResponse(
+                                        id=user_id,
+                                        email=email,
+                                        role=role,
+                                        customer_tier=customer_tier,
+                                        team_id=team_id
+                                    )
+                                   )
 
     async def logout(self, refresh_token: str) -> None:
         """Revoke the given refresh token (logout)."""
@@ -109,12 +129,12 @@ class AuthService:
             raise InvalidTokenException("Refresh token not found")
 
     async def _issue_tokens(
-     self, user_id: int, user_email: str, user_role: str) -> tuple[TokenResponse, str]:
+     self, user_id: int, user_email: str, user_role: str,customer_tier,team_id) -> tuple[TokenResponse, str]:
         
      """Create tokens and return response + refresh token separately."""
      
-     access_token = create_access_token(user_id, user_role)
-     refresh_token, expires_at = create_refresh_token(user_id, user_role)
+     access_token = create_access_token(user_id, user_email,user_role,customer_tier,team_id)
+     refresh_token, expires_at = create_refresh_token(user_id,user_email, user_role,customer_tier,team_id)
  
      await self.token_repo.create(user_id, refresh_token, expires_at)
  
@@ -123,7 +143,9 @@ class AuthService:
          user=UserResponse(
              id=user_id,
              email=user_email,
-             role=user_role
+             role=user_role,
+             customer_tier=customer_tier,
+             team_id=team_id
          )
      )
  

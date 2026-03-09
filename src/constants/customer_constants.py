@@ -1,11 +1,10 @@
 from enum import Enum
 
 class CustomerTier(str, Enum):
-    BASIC = "BASIC"
-    STANDARD = "STANDARD"
-    PREMIUM = "PREMIUM"
+    ENTERPRISE = "enterprise"
+    SMB = "smb"
 
 
 class PreferredContact(str, Enum):
-    EMAIL = "EMAIL"
-    WEB = "WEB"
+    EMAIL = "email"
+    WEB = "web"

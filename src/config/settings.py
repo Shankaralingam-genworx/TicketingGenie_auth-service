@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     # App
     APP_ENV: str
     APP_PORT: int 
+    
+    
+    EMAIL_FROM : str
+    SMTP_HOST : str
+    SMTP_PORT :int
+    SMTP_USER : str
+    SMTP_PASSWORD :str
 
     class Config:
         env_file = ".env"

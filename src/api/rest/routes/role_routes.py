@@ -13,7 +13,7 @@ router = APIRouter(prefix="/roles", tags=["Roles"])
 
 @router.get("/", response_model=list[RoleResponse])
 async def list_roles(
-    current_user: dict = Depends(require_role("ADMIN")),
+    current_user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
     """List all roles. Admin only."""

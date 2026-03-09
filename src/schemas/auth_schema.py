@@ -11,6 +11,8 @@ class UserResponse(BaseModel):
     id: int
     email: str
     role: str
+    customer_tier:str|None
+    team_id : int|None
 
     class Config:
         from_attributes = True 
@@ -28,5 +30,6 @@ class RefreshTokenRequest(BaseModel):
 class AccessTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user:UserResponse
 
 

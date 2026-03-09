@@ -6,7 +6,7 @@ from fastapi.openapi.utils import get_openapi
 from src.api.middleware.cors import add_cors_middleware
 from src.api.middleware.error_handler import add_error_handlers
 from src.api.middleware.logging import add_logging_middleware
-from src.api.rest.routes import auth_routes, health_routes, role_routes, user_routes
+from src.api.rest.routes import auth_routes, health_routes, role_routes, user_routes,admin_routes,team_routes
 
 
 def create_app() -> FastAPI:
@@ -25,6 +25,8 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router, prefix="/api/v1")
     app.include_router(user_routes.router, prefix="/api/v1")
     app.include_router(role_routes.router, prefix="/api/v1")
+    app.include_router(admin_routes.router, prefix="/api/v1")
+    app.include_router(team_routes.router, prefix="/api/v1")
 
     # Override OpenAPI schema to use HTTP Bearer (shows clean token input in Swagger)
     def custom_openapi():

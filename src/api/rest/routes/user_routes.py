@@ -25,7 +25,7 @@ async def get_my_profile(
 
 @router.get("/", response_model=UserListResponse)
 async def list_users(
-    current_user: dict = Depends(require_role("ADMIN")),
+    current_user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
     """List all users. Admin only."""

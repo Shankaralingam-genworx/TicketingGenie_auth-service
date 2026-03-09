@@ -36,10 +36,10 @@ def require_role(*roles: str):
     Dependency factory that enforces role-based access control.
 
     Usage:
-        @router.get("/admin", dependencies=[Depends(require_role("ADMIN"))])
+        @router.get("/admin", dependencies=[Depends(require_role("admin"))])
     or:
         @router.get("/admin")
-        async def endpoint(user=Depends(require_role("ADMIN", "TEAM_LEAD"))):
+        async def endpoint(user=Depends(require_role("admin", "team_lead"))):
             ...
     """
 

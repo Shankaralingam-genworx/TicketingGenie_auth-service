@@ -5,6 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.data.models.postgres.user_model import User
+from src.data.models.postgres.team_model import Team
+from src.data.models.postgres.customer_model import Customer
+from src.data.models.postgres.team_member_model import TeamMember
 
 
 class UserRepository:
@@ -25,10 +28,17 @@ class UserRepository:
         return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> User | None:
-        """Fetch a user by email, with role loaded."""
+        """Fetch a user by email with related data."""
         result = await self.db.execute(
-            select(User).options(selectinload(User.role)).where(User.email == email)
+            select(User)
+            .options(
+                selectinload(User.role),
+                selectinload(User.customer),
+                selectinload(User.led_teams)
+            )
+            .where(User.email == email)
         )
+
         return result.scalar_one_or_none()
 
     async def get_all(self) -> list[User]:
@@ -45,3 +55,26 @@ class UserRepository:
         await self.db.flush()
         # Reload with role
         return await self.get_by_id(user.id)
+    
+    
+        """
+    Add this method to your existing UserRepository class.
+    The rest of the file stays unchanged.
+    """
+
+    async def get_by_roles(self, role_names: list[str]):
+        """Fetch all users whose role.name is in the given list."""
+        from sqlalchemy.orm import selectinload
+        from src.data.models.postgres.role_model import Role
+
+        result = await self.db.execute(
+            select(User)
+            .join(User.role)
+            .where(Role.name.in_(role_names))
+            .options(
+                selectinload(User.role),
+                selectinload(User.team_memberships).selectinload(TeamMember.team),
+            )
+            .order_by(User.created_at.desc())
+        )
+        return list(result.scalars().all())

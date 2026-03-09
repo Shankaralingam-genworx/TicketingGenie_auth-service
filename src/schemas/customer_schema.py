@@ -11,7 +11,7 @@ class CustomerRegisterRequest(BaseModel):
     password: str = Field(..., description="Password, minimum 8 characters")
     phone: str | None = Field(None, description="Optional phone number")
     customer_tier: CustomerTier = Field(
-        CustomerTier.BASIC, description="Customer tier: BASIC, PREMIUM, STANDARD"
+        CustomerTier.SMB, description="Customer tier: Enterprise or smb"
     )
     preferred_contact: PreferredContact = Field(
         PreferredContact.EMAIL, description="Preferred contact method: EMAIL or WEB"

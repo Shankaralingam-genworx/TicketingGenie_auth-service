@@ -24,7 +24,7 @@ class CustomerRepository:
         self,
         user_id: int,
         phone: str | None = None,
-        customer_tier: CustomerTier = CustomerTier.BASIC,
+        customer_tier: CustomerTier = CustomerTier.SMB,
         preferred_contact: PreferredContact = PreferredContact.EMAIL,
     ) -> Customer:
         """Create a customer profile linked to a user, with tier and contact preference."""

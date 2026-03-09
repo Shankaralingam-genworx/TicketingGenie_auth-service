@@ -1,6 +1,6 @@
 """Authentication routes: register, login, refresh, logout."""
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.rest.dependencies import get_current_user
@@ -24,13 +24,13 @@ async def register(data: CustomerRegisterRequest,
     token_response, refresh_token =  await service.register_customer(data)
     
     response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=False,      # True in production (HTTPS)
-        samesite="Strict",
-        max_age=7 * 24 * 60 * 60,
-    )
+    key="refresh_token",
+    value=refresh_token,
+    httponly=True,
+    secure=True,
+    samesite="none",
+    max_age=7 * 24 * 60 * 60,
+)
     
     return token_response
 
@@ -45,13 +45,13 @@ async def login(
     token_response, refresh_token = await service.login(data.email, data.password)
 
     response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=False,      # True in production (HTTPS)
-        samesite="Strict",
-        max_age=7 * 24 * 60 * 60,
-    )
+    key="refresh_token",
+    value=refresh_token,
+    httponly=True,
+    secure=True,
+    samesite="none",
+    max_age=7 * 24 * 60 * 60,
+)
 
     return token_response
 
@@ -62,6 +62,8 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db)
 ):
     refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
     # print("="*30)
     # print(refresh_token)
 
@@ -82,15 +84,3 @@ async def logout(
 
     response.delete_cookie("refresh_token")
 
-
-@router.get("/validate")
-async def validate_token(current_user: dict = Depends(get_current_user)):
-    """
-    Validate an access token.
-    Used by Ticket Service to verify JWT and retrieve user info.
-    """
-    return {
-        "user_id": current_user.get("sub"),
-        "role": current_user.get("role"),
-        "token_type": current_user.get("type"),
-    }

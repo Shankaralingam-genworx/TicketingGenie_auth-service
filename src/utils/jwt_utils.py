@@ -11,24 +11,30 @@ from src.core.exceptions.auth_exceptions import InvalidTokenException, TokenExpi
 logger = logging.getLogger(__name__)
 
 
-def create_access_token(user_id: int | str, role: str) -> str:
+def create_access_token(user_id: int | str,user_email:str, role: str,customer_tier:str,team_id:int) -> str:
     """Create a short-lived JWT access token."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),   # always stringify — int PKs become "1", "2", etc.
+        "email":user_email,
         "role": role,
+        "customer_tier":customer_tier,
+        "team_id":team_id,
         "exp": expire,
         "type": "access",
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(user_id: int | str, role: str) -> tuple[str, datetime]:
+def create_refresh_token(user_id: int | str,user_email:str, role: str,customer_tier:str,team_id:int) -> tuple[str, datetime]:
     """Create a long-lived JWT refresh token. Returns (token, expiry)."""
     expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {
         "sub": str(user_id),   # always stringify
+        "email":user_email,
         "role": role,
+        "customer_tier":customer_tier,
+        "team_id":team_id,
         "exp": expire,
         "type": "refresh",
     }

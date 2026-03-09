@@ -28,56 +28,56 @@ logger = get_logger("init_db")
 # Seed Data
 # ---------------------------------------------------------------------------
 
-ROLES = ["CUSTOMER", "SUPPORT_AGENT", "TEAM_LEAD", "ADMIN"]
+ROLES = ["customer", "support_agent", "team_lead", "admin"]
 
 USERS = [
     {
         "name": "Super Admin",
         "email": "admin@ticketinggenie.com",
         "password": "Admin@1234",
-        "role": "ADMIN",
+        "role": "admin",
     },
     {
         "name": "Alice Johnson",
         "email": "alice.teamlead@ticketinggenie.com",
         "password": "TeamLead@1234",
-        "role": "TEAM_LEAD",
+        "role": "team_lead",
     },
     {
         "name": "Bob Martinez",
         "email": "bob.teamlead@ticketinggenie.com",
         "password": "TeamLead@1234",
-        "role": "TEAM_LEAD",
+        "role": "team_lead",
     },
     {
         "name": "Charlie Davis",
         "email": "charlie.agent@ticketinggenie.com",
         "password": "Agent@1234",
-        "role": "SUPPORT_AGENT",
+        "role": "support_agent",
     },
     {
         "name": "Diana Lee",
         "email": "diana.agent@ticketinggenie.com",
         "password": "Agent@1234",
-        "role": "SUPPORT_AGENT",
+        "role": "support_agent",
     },
     {
         "name": "Ethan Brown",
         "email": "ethan.agent@ticketinggenie.com",
         "password": "Agent@1234",
-        "role": "SUPPORT_AGENT",
+        "role": "support_agent",
     },
     {
         "name": "Fiona Clark",
         "email": "fiona.agent@ticketinggenie.com",
         "password": "Agent@1234",
-        "role": "SUPPORT_AGENT",
+        "role": "support_agent",
     },
     {
         "name": "George Wilson",
         "email": "george.agent@ticketinggenie.com",
         "password": "Agent@1234",
-        "role": "SUPPORT_AGENT",
+        "role": "support_agent",
     },
 ]
 

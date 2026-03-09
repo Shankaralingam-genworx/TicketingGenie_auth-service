@@ -25,7 +25,7 @@ class Customer(Base):
     )
     
     customer_tier: Mapped[CustomerTier] = mapped_column(
-        SAEnum(CustomerTier), nullable=False, default=CustomerTier.BASIC
+        SAEnum(CustomerTier), nullable=False, default=CustomerTier.SMB
     )
     
 
