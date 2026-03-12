@@ -21,7 +21,7 @@ class UserRepository:
         result = await self.db.execute(select(User)
         .options(
             selectinload(User.role),
-            selectinload(User.customer),   # ← ADD THIS
+            selectinload(User.customer),   
         )
         .where(User.id == user_id)
     )

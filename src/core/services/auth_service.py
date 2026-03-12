@@ -67,7 +67,7 @@ class AuthService:
         )
     
         # Issue tokens
-        return await self._issue_tokens(user.id, data.email, RoleName.CUSTOMER.value)
+        return await self._issue_tokens(user.id, data.email, RoleName.CUSTOMER.value,data.customer_tier,None)
        
 
     async def login(self, email: str, password: str) -> TokenResponse:
@@ -81,11 +81,11 @@ class AuthService:
         
         customer_tier = None
         team_id = None
-        if user.role == "customer":
+        if user.role.name == "customer":
             customer_tier = user.customer.customer_tier
-        elif user.role == "support_agent" or user.role == "team_lead":
-            team_id = user.led_teams.team_id
-
+        elif (user.role.name == "support_agent" or user.role.name == "team_lead"):
+            team_id = user.led_teams[0].id if user.led_teams else None
+            
         return await self._issue_tokens(user.id,user.email,user.role.name,customer_tier,team_id)
 
     async def refresh_access_token(self, refresh_token: str) -> AccessTokenResponse:

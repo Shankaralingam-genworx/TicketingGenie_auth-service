@@ -1,12 +1,12 @@
 """Application entry point."""
 
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
 from src.core.services.role_service import RoleService
 from src.data.clients.postgres_client import AsyncSessionLocal, create_tables
 from src.observability.logging.logger import get_logger, setup_logging
+from src.api.rest.app import create_app
 
 setup_logging()
 logger = get_logger(__name__)
@@ -26,17 +26,15 @@ async def lifespan(app: FastAPI):
         role_service = RoleService(session)
         await role_service.seed_roles()
         await session.commit()
-    logger.info("Default roles seeded.")
 
-    logger.info("Auth Service is ready at http://0.0.0.0:8000")
-    logger.info("API docs available at http://0.0.0.0:8000/docs")
+    logger.info("Default roles seeded.")
+    logger.info("Auth Service is ready at http://localhost:8001")
+    logger.info("API docs available at http://localhost:8001/docs")
+
     yield
+
     logger.info("Auth Service shutting down.")
 
 
-# Import here to avoid circular imports at module level
-from src.api.rest.app import create_app  # noqa: E402
-
 app = create_app()
 app.router.lifespan_context = lifespan
-

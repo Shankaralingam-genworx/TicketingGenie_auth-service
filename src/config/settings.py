@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     SMTP_PORT :int
     SMTP_USER : str
     SMTP_PASSWORD :str
+    
+    INTERNAL_API_KEY: str
+    
+    FRONTEND_URL : str
 
     class Config:
         env_file = ".env"

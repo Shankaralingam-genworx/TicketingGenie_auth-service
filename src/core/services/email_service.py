@@ -18,7 +18,7 @@ from src.config.settings import settings   # adjust import to your settings modu
 
 logger = logging.getLogger("email.service")
 
-FRONTEND_URL = "http://localhost:5173"   # adjust for production
+FRONTEND_URL =  settings.FRONTEND_URL
 
 
 class EmailService:
