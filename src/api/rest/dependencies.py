@@ -20,7 +20,7 @@ def get_current_user(
     """
     try:
         payload = decode_token(credentials.credentials)
-        # print(payload)
+        
     except Exception as e:
         # print("JWT ERROR:", str(e))
         raise UnauthorizedException("Invalid or expired access token")

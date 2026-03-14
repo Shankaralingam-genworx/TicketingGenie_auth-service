@@ -1,86 +1,65 @@
-"""Authentication routes: register, login, refresh, logout."""
+"""Authentication routes: register, login, refresh, logout, forgot/reset password."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.rest.dependencies import get_current_user
+from src.utils.auth_utils import set_refresh_cookie
 from src.core.services.auth_service import AuthService
+from src.core.services.password_reset_service import PasswordResetService
 from src.data.clients.postgres_client import get_db
-from src.schemas.auth_schema import (
-    AccessTokenResponse,
-    LoginRequest,
-    TokenResponse,
-)
+from src.schemas.auth_schema import AccessTokenResponse, LoginRequest, TokenResponse
 from src.schemas.customer_schema import CustomerRegisterRequest
+from src.schemas.password_reset_schema import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(data: CustomerRegisterRequest,
-    response: Response, db: AsyncSession = Depends(get_db)):
-    """Register a new customer account and receive tokens."""
-    service = AuthService(db)
-    token_response, refresh_token =  await service.register_customer(data)
-    
-    response.set_cookie(
-    key="refresh_token",
-    value=refresh_token,
-    httponly=True,
-    secure=True,
-    samesite="none",
-    max_age=7 * 24 * 60 * 60,
-)
-    
+async def register(data: CustomerRegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    token_response, refresh_token = await AuthService(db).register_customer(data)
+    set_refresh_cookie(response, refresh_token)
     return token_response
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(
-    data: LoginRequest,
-    response: Response,
-    db: AsyncSession = Depends(get_db)
-):
-    service = AuthService(db)
-    token_response, refresh_token = await service.login(data.email, data.password)
-
-    response.set_cookie(
-    key="refresh_token",
-    value=refresh_token,
-    httponly=True,
-    secure=True,
-    samesite="none",
-    max_age=7 * 24 * 60 * 60,
-)
-
+async def login(data: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    token_response, refresh_token = await AuthService(db).login(data.email, data.password)
+    set_refresh_cookie(response, refresh_token)
     return token_response
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
-async def refresh_token(
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
+async def refresh(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     refresh_token = request.cookies.get("refresh_token")
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Refresh token missing")
-    # print("="*30)
-    # print(refresh_token)
 
-    service = AuthService(db)
-    return await service.refresh_access_token(refresh_token)
+    access_response, new_refresh_token = await AuthService(db).refresh_access_token(refresh_token)
+    set_refresh_cookie(response, new_refresh_token)
+    return access_response
 
 
 @router.post("/logout", status_code=204)
-async def logout(
-    request: Request,
-    response: Response,
-    db: AsyncSession = Depends(get_db)
-):
+async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     refresh_token = request.cookies.get("refresh_token")
-
-    service = AuthService(db)
-    await service.logout(refresh_token)
-
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
+    await AuthService(db).logout(refresh_token)
     response.delete_cookie("refresh_token")
 
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    await PasswordResetService(db).forgot_password(data.email)
+    return ForgotPasswordResponse()  # always the same response — no enumeration
+
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    await PasswordResetService(db).reset_password(data.token, data.new_password)
+    return ResetPasswordResponse()

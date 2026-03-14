@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String,Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from src.utils.auth_utils import get_current_time
 from src.data.clients.postgres_client import Base
 
 
@@ -21,7 +21,7 @@ class User(Base):
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: get_current_time()
     )
 
     # Relationships
@@ -45,4 +45,10 @@ class User(Base):
         "TeamMember",
         back_populates="user",
         cascade="all, delete-orphan",
+)
+
+    password_reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(  # noqa: F821
+    "PasswordResetToken",
+    back_populates="user",
+    cascade="all, delete-orphan",
 )

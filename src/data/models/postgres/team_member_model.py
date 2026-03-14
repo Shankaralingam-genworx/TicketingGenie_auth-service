@@ -7,7 +7,7 @@ from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint,Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.data.clients.postgres_client import Base
-
+from src.utils.auth_utils import get_current_time
 
 class TeamMember(Base):
     __tablename__ = "team_members"
@@ -25,7 +25,7 @@ class TeamMember(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: get_current_time()
     )
 
     __table_args__ = (
