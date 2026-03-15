@@ -8,7 +8,7 @@ celery_app = Celery(
     "auth_worker",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["src.tasks.email_tasks"],
+    include=["src.core.celery.workers.email_tasks"],
 )
 
 celery_app.conf.update(
