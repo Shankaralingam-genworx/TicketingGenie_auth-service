@@ -20,6 +20,7 @@ from src.data.models.postgres.team_model import Team
 from src.data.models.postgres.team_member_model import TeamMember
 from src.observability.logging.logger import get_logger, setup_logging
 from src.utils.password_utils import hash_password
+from src.utils.auth_utils import get_current_time
 
 setup_logging()
 logger = get_logger("init_db")
@@ -144,7 +145,7 @@ async def seed_users(db: AsyncSession, role_map: Dict[str, int]) -> None:
             password_hash=hash_password(data["password"]),
             role_id=role_map[data["role"]],  # INT FK
             is_active=True,
-            created_at=datetime.now(timezone.utc),
+            created_at=get_current_time(),
         )
 
         db.add(user)

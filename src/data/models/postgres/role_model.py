@@ -7,6 +7,7 @@ from sqlalchemy import DateTime, String,Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.data.clients.postgres_client import Base
+from src.utils.auth_utils import get_current_time
 
 
 class Role(Base):
@@ -16,7 +17,7 @@ class Role(Base):
         Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: get_current_time()
     )
 
     # Relationships

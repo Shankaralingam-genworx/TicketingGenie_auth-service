@@ -2,9 +2,10 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
+import uuid
 
 from jose import JWTError, jwt
-
+from src.utils.auth_utils import get_current_time
 from src.config.settings import settings
 from src.core.exceptions.auth_exceptions import InvalidTokenException, TokenExpiredException
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def create_access_token(user_id: int | str,user_email:str, role: str,customer_tier:str,team_id:int) -> str:
     """Create a short-lived JWT access token."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = get_current_time() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),   # always stringify — int PKs become "1", "2", etc.
         "email":user_email,
@@ -26,20 +27,22 @@ def create_access_token(user_id: int | str,user_email:str, role: str,customer_ti
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(user_id: int | str,user_email:str, role: str,customer_tier:str,team_id:int) -> tuple[str, datetime]:
-    """Create a long-lived JWT refresh token. Returns (token, expiry)."""
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+def create_refresh_token(user_id, user_email, role, customer_tier, team_id) -> tuple[str, str, datetime]:
+    """Returns (token, jti, expiry)."""
+    jti = str(uuid.uuid4())
+    expire = get_current_time() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {
-        "sub": str(user_id),   # always stringify
-        "email":user_email,
+        "sub": str(user_id),
+        "email": user_email,
         "role": role,
-        "customer_tier":customer_tier,
-        "team_id":team_id,
+        "customer_tier": customer_tier,
+        "team_id": team_id,
         "exp": expire,
         "type": "refresh",
+        "jti": jti,
     }
     token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-    return token, expire
+    return token, jti, expire
 
 
 def decode_token(token: str) -> dict:

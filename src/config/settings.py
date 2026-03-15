@@ -25,8 +25,9 @@ class Settings(BaseSettings):
     SMTP_PORT :int
     SMTP_USER : str
     SMTP_PASSWORD :str
-    
-    INTERNAL_API_KEY: str
+
+    REDIS_URL : str
+    RESET_TOKEN_EXPIRE_MINUTES : int
     
     FRONTEND_URL : str
 
