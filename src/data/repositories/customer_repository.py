@@ -2,9 +2,10 @@
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.data.models.postgres.customer_model import Customer
-from src.constants.customer_constants import CustomerTier, PreferredContact
+from src.constants.customer_constants import PreferredContact
 
 
 class CustomerRepository:
@@ -13,27 +14,77 @@ class CustomerRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    # ── Queries ────────────────────────────────────────────────────────────────
+
     async def get_by_user_id(self, user_id: int) -> Customer | None:
-        """Fetch a customer record by user_id."""
+        """Fetch a customer record by user_id, with tier loaded."""
         result = await self.db.execute(
-            select(Customer).where(Customer.user_id == user_id)
+            select(Customer)
+            .options(selectinload(Customer.tier))
+            .where(Customer.user_id == user_id)
         )
         return result.scalar_one_or_none()
+
+    async def get_by_org_id(self, org_id: int) -> list[Customer]:
+        """Fetch all customer records for a given organisation."""
+        result = await self.db.execute(
+            select(Customer)
+            .options(selectinload(Customer.tier))
+            .where(Customer.org_id == org_id)
+        )
+        return list(result.scalars().all())
+
+    # ── Writes ─────────────────────────────────────────────────────────────────
 
     async def create(
         self,
         user_id: int,
+        org_id: int | None = None,
         phone: str | None = None,
-        customer_tier: CustomerTier = CustomerTier.SMB,
-        preferred_contact: PreferredContact = PreferredContact.EMAIL,
+        preferred_contact: PreferredContact | None = PreferredContact.EMAIL,
+        customer_tier_id: int | None = None,
     ) -> Customer:
-        """Create a customer profile linked to a user, with tier and contact preference."""
+        """
+        Generic customer profile create.
+        For org-member customers use create_org_customer() instead.
+        """
         customer = Customer(
             user_id=user_id,
+            org_id=org_id,
             phone=phone,
-            customer_tier=customer_tier,
             preferred_contact=preferred_contact,
+            customer_tier_id=customer_tier_id,
         )
         self.db.add(customer)
-        await self.db.flush() 
-        return customer
+        await self.db.flush()
+        return await self.get_by_user_id(user_id)
+
+    async def create_org_customer(
+        self,
+        user_id: int,
+        org_id: int,
+        customer_tier_id: int | None,
+        phone: str | None = None,
+        preferred_contact: PreferredContact | None = PreferredContact.EMAIL,
+    ) -> Customer:
+        """
+        Create a customer profile for an org-member customer.
+
+        - org_id is REQUIRED — raises ValueError if missing
+        - customer_tier_id comes from org.customer_tier_id — never overridden per customer
+
+        Called exclusively by OrganisationService.add_customer().
+        """
+        if not org_id:
+            raise ValueError("org_id is required when creating an organisation customer.")
+
+        customer = Customer(
+            user_id=user_id,
+            org_id=org_id,
+            phone=phone,
+            preferred_contact=preferred_contact,
+            customer_tier_id=customer_tier_id,  # inherited from org
+        )
+        self.db.add(customer)
+        await self.db.flush()
+        return await self.get_by_user_id(user_id)

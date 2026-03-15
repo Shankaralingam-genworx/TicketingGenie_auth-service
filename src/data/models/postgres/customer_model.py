@@ -1,18 +1,15 @@
-"""Customer database model (extends users with role=CUSTOMER).
+"""Customer database model (extends users with role=customer).
 
-⚠️  CustomerTier here must use the SAME values as CustomerTier in the ticket
-    service (src/constants/sla_constants.py). Both map to the SQL type
-    'customertier' created in V1__create_auth_service_tables.sql.
-    Align both Python Enum classes before running migrations.
+customer_tier_id FK replaces the old enum-based customer_tier column.
+org_id mirrors users.org_id — denormalised so the ticket service can
+join customers to their org without going through the users table.
 """
 
-from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, ForeignKey, String, Integer, Enum as SAEnum
+from sqlalchemy import ForeignKey, String, Integer, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.data.clients.postgres_client import Base
-from src.constants.customer_constants import CustomerTier, PreferredContact
+from src.constants.customer_constants import PreferredContact
 
 
 class Customer(Base):
@@ -24,18 +21,33 @@ class Customer(Base):
         Integer, ForeignKey("users.id"), unique=True, nullable=False
     )
 
+    # Mirrors users.org_id — denormalised for ticket-service joins
+    org_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organisations.id"), nullable=True, default=None
+    )
+
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     preferred_contact: Mapped[PreferredContact | None] = mapped_column(
-        # Explicit name matches the SQL enum type created in V1
         SAEnum(PreferredContact, name="preferredcontact"), nullable=True
     )
 
-    customer_tier: Mapped[CustomerTier] = mapped_column(
-        # Explicit name matches the SQL enum type created in V1
-        # and reused in ticket service (sla_policies, tickets tables)
-        SAEnum(CustomerTier, name="customertier"), nullable=False, default=CustomerTier.SMB
+    # FK-based tier — replaces the old enum column
+    customer_tier_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("customer_tiers.id"), nullable=True, default=None
     )
 
-    # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="customer")  # noqa: F821
+    # ── Relationships ──────────────────────────────────────────────────────────
+    user: Mapped["User"] = relationship(  # noqa: F821
+        "User", back_populates="customer"
+    )
+
+    # back_populates="customers" matches Organisation.customers
+    organisation: Mapped["Organisation"] = relationship(  # noqa: F821
+        "Organisation", back_populates="customers", foreign_keys=[org_id]
+    )
+
+    # back_populates="customers" matches CustomerTier.customers
+    tier: Mapped["CustomerTier"] = relationship(  # noqa: F821
+        "CustomerTier", back_populates="customers", foreign_keys=[customer_tier_id]
+    )

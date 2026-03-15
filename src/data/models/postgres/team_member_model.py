@@ -1,6 +1,6 @@
 """Team Member database model."""
 
-import uuid
+
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint,Integer

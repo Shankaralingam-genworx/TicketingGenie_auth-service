@@ -1,6 +1,4 @@
-"""
-Admin service — staff creation with welcome email, team CRUD.
-"""
+"""Admin service — staff creation with welcome email, team CRUD."""
 
 import logging
 import secrets
@@ -9,8 +7,8 @@ import string
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants.auth_constants import RoleName
-from src.core.exceptions.auth_exceptions import UserAlreadyExistsException, UserNotFoundException
-from src.core.exceptions.base_exception import NotFoundException
+from src.core.exceptions.auth_exceptions import UserAlreadyExistsException
+from src.core.exceptions.base_exception import AppException, NotFoundException
 from src.core.security import hash_password
 from src.core.services.email_service import EmailService
 from src.data.repositories.role_repository import RoleRepository
@@ -31,9 +29,21 @@ STAFF_ROLES = {RoleName.SUPPORT_AGENT.value, RoleName.TEAM_LEAD.value}
 
 
 def _generate_password(length: int = 12) -> str:
-    """Generate a secure random password."""
+    """
+    Generate a secure random password that meets complexity requirements:
+    at least one uppercase, one lowercase, one digit, one symbol.
+    """
     alphabet = string.ascii_letters + string.digits + "!@#$%"
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+    # Guarantee at least one character from each required class
+    pwd = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%"),
+    ]
+    pwd += [secrets.choice(alphabet) for _ in range(length - 4)]
+    secrets.SystemRandom().shuffle(pwd)
+    return "".join(pwd)
 
 
 def _to_staff_response(user, team_id=None, team_name=None) -> StaffResponse:
@@ -79,44 +89,45 @@ def _to_team_detail(team) -> TeamDetailResponse:
 
 class AdminService:
     def __init__(self, db: AsyncSession):
-        self.db          = db
-        self.user_repo   = UserRepository(db)
-        self.role_repo   = RoleRepository(db)
-        self.team_repo   = TeamRepository(db)
-        self.email_svc   = EmailService()
+        self.db        = db
+        self.user_repo = UserRepository(db)
+        self.role_repo = RoleRepository(db)
+        self.team_repo = TeamRepository(db)
+        self.email_svc = EmailService()
 
     # ── Staff ──────────────────────────────────────────────────────────────────
 
     async def create_staff(self, data: CreateStaffRequest) -> StaffResponse:
-        if data.role.value not in STAFF_ROLES:
-            raise ValueError(f"Role must be one of {STAFF_ROLES}")
+        # Schema already restricts role to "support_agent" | "team_lead" via Literal
+        # but guard here defensively as well
+        if data.role not in STAFF_ROLES:
+            raise AppException(f"Role must be one of {STAFF_ROLES}", status_code=400)
 
         existing = await self.user_repo.get_by_email(data.email)
         if existing:
             raise UserAlreadyExistsException()
 
-        role = await self.role_repo.get_by_name(data.role.value)
+        role = await self.role_repo.get_by_name(data.role)
         if not role:
-            raise RuntimeError(f"Role '{data.role.value}' not seeded.")
+            raise AppException(f"Role '{data.role}' not seeded.", status_code=500)
 
-        # Generate & hash random password
         plain_password = _generate_password()
         user = await self.user_repo.create(
             name=data.name,
             email=data.email,
             password_hash=hash_password(plain_password),
             role_id=role.id,
+            must_change_password=True,   # staff must change temp password on first login
         )
 
-        # Send welcome email with credentials
         await self.email_svc.send_welcome(
             to_email=data.email,
             name=data.name,
-            role=data.role.value,
+            role=data.role,
             temp_password=plain_password,
         )
 
-        logger.info(f"Staff created: {user.email} ({data.role.value})")
+        logger.info("Staff created: %s (%s)", user.email, data.role)
         return _to_staff_response(user)
 
     async def get_staff(self, user_id: int) -> StaffResponse:
@@ -147,25 +158,31 @@ class AdminService:
     # ── Teams ──────────────────────────────────────────────────────────────────
 
     async def create_team(self, data: CreateTeamRequest) -> TeamDetailResponse:
-        # Validate team lead
         lead = await self.user_repo.get_by_id(data.team_lead_id)
         if not lead or lead.role.name != RoleName.TEAM_LEAD.value:
-            raise ValueError("team_lead_id must reference a TEAM_LEAD user.")
+            raise AppException(
+                "team_lead_id must reference a TEAM_LEAD user.", status_code=400
+            )
 
         team = await self.team_repo.create(
             name=data.name,
             team_lead_id=data.team_lead_id,
         )
 
-        # Add lead as a member too (so team_id resolves in JWT)
+        # Add lead as a member so their team_id resolves in the JWT
         await self.team_repo.add_member(team.id, data.team_lead_id)
 
-        # Add agents
+        # Validate and add agents
         for agent_id in data.agent_ids:
+            agent = await self.user_repo.get_by_id(agent_id)
+            if not agent or agent.role.name != RoleName.SUPPORT_AGENT.value:
+                raise AppException(
+                    f"User {agent_id} is not a support agent.", status_code=400
+                )
             await self.team_repo.add_member(team.id, agent_id)
 
         team = await self.team_repo.get_by_id(team.id)
-        logger.info(f"Team created: {team.name} (id={team.id})")
+        logger.info("Team created: %s (id=%s)", team.name, team.id)
         return _to_team_detail(team)
 
     async def get_team(self, team_id: int) -> TeamDetailResponse:
@@ -178,7 +195,9 @@ class AdminService:
         teams = await self.team_repo.get_all()
         return [_to_team_detail(t) for t in teams]
 
-    async def update_team(self, team_id: int, data: UpdateTeamRequest) -> TeamDetailResponse:
+    async def update_team(
+        self, team_id: int, data: UpdateTeamRequest
+    ) -> TeamDetailResponse:
         team = await self.team_repo.get_by_id(team_id)
         if not team:
             raise NotFoundException("Team", team_id)
@@ -189,15 +208,27 @@ class AdminService:
         if data.team_lead_id is not None:
             lead = await self.user_repo.get_by_id(data.team_lead_id)
             if not lead or lead.role.name != RoleName.TEAM_LEAD.value:
-                raise ValueError("team_lead_id must reference a TEAM_LEAD user.")
+                raise AppException(
+                    "team_lead_id must reference a TEAM_LEAD user.", status_code=400
+                )
             team = await self.team_repo.update(team, team_lead_id=data.team_lead_id)
-            # Ensure new lead is also a member
             await self.team_repo.add_member(team.id, data.team_lead_id)
 
         for agent_id in (data.add_agent_ids or []):
+            agent = await self.user_repo.get_by_id(agent_id)
+            if not agent or agent.role.name != RoleName.SUPPORT_AGENT.value:
+                raise AppException(
+                    f"User {agent_id} is not a support agent.", status_code=400
+                )
             await self.team_repo.add_member(team.id, agent_id)
 
         for agent_id in (data.remove_agent_ids or []):
+            # Prevent removing the current team lead from the members list
+            if agent_id == team.team_lead_id:
+                raise AppException(
+                    "Cannot remove the team lead from the team members list.",
+                    status_code=400,
+                )
             await self.team_repo.remove_member(team.id, agent_id)
 
         team = await self.team_repo.get_by_id(team_id)
@@ -208,8 +239,8 @@ class AdminService:
         if not team:
             raise NotFoundException("Team", team_id)
         await self.team_repo.delete(team)
-        logger.info(f"Team deleted: id={team_id}")
-        
+        logger.info("Team deleted: id=%s", team_id)
+
     async def list_teams_dropdown(self) -> list[dict]:
         rows = await self.team_repo.get_all_dropdown()
         return [

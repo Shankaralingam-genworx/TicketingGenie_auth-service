@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 from src.core.exceptions.base_exception import AppException
 from src.observability.logging.logger import get_logger
@@ -21,6 +22,22 @@ def add_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.message},
+        )
+
+    @app.exception_handler(IntegrityError)
+    async def handle_integrity_error(request: Request, exc: IntegrityError):
+        """
+        Handle SQLAlchemy unique-constraint / FK violations.
+        These arise from concurrent duplicate inserts that pass the
+        application-level uniqueness check but collide at the DB level.
+        Return 409 instead of leaking a 500 with an internal traceback.
+        """
+        logger.warning(
+            f"IntegrityError on {request.url.path}: {exc.orig}"
+        )
+        return JSONResponse(
+            status_code=409,
+            content={"detail": "A record with this value already exists."},
         )
 
     @app.exception_handler(Exception)
