@@ -1,5 +1,6 @@
 """Async Celery tasks for sending emails."""
 
+import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -7,10 +8,14 @@ from email.mime.text import MIMEText
 from src.config.settings import settings
 from src.core.celery.celery_app import celery_app
 
+logger = logging.getLogger("email_task")
+
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
 def send_password_reset_email(self, recipient_email: str, reset_link: str) -> None:
     """Send a password reset email. Retries up to 3 times on failure."""
+    logger.info(f"[attempt {self.request.retries + 1}/3] Sending reset email → {recipient_email}")
+
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "Reset your password"
@@ -45,10 +50,32 @@ def send_password_reset_email(self, recipient_email: str, reset_link: str) -> No
         msg.attach(MIMEText(plain_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        logger.debug(f"Connecting to SMTP {settings.SMTP_HOST}:{settings.SMTP_PORT}")
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+            server.ehlo()
+            logger.debug("SMTP ehlo OK")
             server.starttls()
+            logger.debug("SMTP starttls OK")
+            server.ehlo()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            logger.debug(f"SMTP login OK as {settings.SMTP_USER}")
             server.sendmail(settings.EMAIL_FROM, recipient_email, msg.as_string())
 
+        logger.info(f"Reset email successfully sent → {recipient_email}")
+
+    except smtplib.SMTPAuthenticationError as exc:
+        # Bad credentials — retrying won't help, fail immediately
+        logger.error(f"SMTP auth failed — check SMTP_USER/SMTP_PASSWORD in .env | {exc}")
+        raise
+
+    except smtplib.SMTPConnectError as exc:
+        logger.error(f"SMTP connection failed to {settings.SMTP_HOST}:{settings.SMTP_PORT} | {exc}")
+        raise self.retry(exc=exc)
+
+    except smtplib.SMTPException as exc:
+        logger.error(f"SMTP error on attempt {self.request.retries + 1}: {exc}")
+        raise self.retry(exc=exc)
+
     except Exception as exc:
+        logger.error(f"Unexpected error on attempt {self.request.retries + 1}: {exc}")
         raise self.retry(exc=exc)
