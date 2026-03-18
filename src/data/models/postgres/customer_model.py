@@ -1,9 +1,3 @@
-"""Customer database model (extends users with role=customer).
-
-customer_tier_id FK replaces the old enum-based customer_tier column.
-org_id mirrors users.org_id — denormalised so the ticket service can
-join customers to their org without going through the users table.
-"""
 
 from sqlalchemy import ForeignKey, String, Integer, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship

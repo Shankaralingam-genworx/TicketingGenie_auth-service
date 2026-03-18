@@ -10,7 +10,7 @@ from src.constants.auth_constants import RoleName
 from src.core.exceptions.auth_exceptions import UserAlreadyExistsException
 from src.core.exceptions.base_exception import AppException, NotFoundException
 from src.core.security import hash_password
-from src.core.services.email_service import EmailService
+from src.core.celery.workers.email_tasks import send_staff_welcome_email
 from src.data.repositories.role_repository import RoleRepository
 from src.data.repositories.team_repository import TeamRepository
 from src.data.repositories.user_repository import UserRepository
@@ -93,7 +93,6 @@ class AdminService:
         self.user_repo = UserRepository(db)
         self.role_repo = RoleRepository(db)
         self.team_repo = TeamRepository(db)
-        self.email_svc = EmailService()
 
     # ── Staff ──────────────────────────────────────────────────────────────────
 
@@ -120,7 +119,8 @@ class AdminService:
             must_change_password=True,   # staff must change temp password on first login
         )
 
-        await self.email_svc.send_welcome(
+        # Fire-and-forget via Celery — non-blocking so the API responds instantly
+        send_staff_welcome_email.delay(
             to_email=data.email,
             name=data.name,
             role=data.role,

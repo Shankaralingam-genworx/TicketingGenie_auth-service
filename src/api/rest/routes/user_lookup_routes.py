@@ -1,10 +1,3 @@
-"""
-GET /users/by-email  — internal endpoint for the ticket service.
-
-Ticket service calls this to resolve a user's role and customer tier
-by email address (e.g. when processing an inbound email ticket).
-No auth header required — both services are on the same internal network.
-"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -20,7 +13,7 @@ class UserLookupResponse(BaseModel):
     id:            int
     email:         str
     role:          str
-    customer_tier: str | None = None   # tier name string (e.g. "smb", "enterprise")
+    customer_tier: str | None = None   
     team_id:       int | None = None
     org_id:        int | None = None
 

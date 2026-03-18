@@ -1,9 +1,3 @@
-"""Async PostgreSQL database client using SQLAlchemy.
-
-Used by the Auth Service. Both Auth Service and Ticket Service share the same database.
-Tables are created via Base.metadata.create_all — each service creates only its own tables on startup.
-The SQL migration files (V1, V2) are kept as a reference/documentation only.
-"""
 
 from typing import AsyncGenerator
 

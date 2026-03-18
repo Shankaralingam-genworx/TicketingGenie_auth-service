@@ -11,8 +11,7 @@ from pydantic import BaseModel, EmailStr, Field
 class CreateStaffRequest(BaseModel):
     name:  str    = Field(..., min_length=1)
     email: EmailStr
-    # Restricted to staff roles only — prevents accidentally creating admin/customer
-    # accounts through this endpoint and avoids the ValueError→500 bug.
+
     role:  Literal["support_agent", "team_lead"] = Field(
         ..., description="Must be 'support_agent' or 'team_lead'"
     )

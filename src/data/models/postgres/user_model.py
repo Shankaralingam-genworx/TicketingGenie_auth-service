@@ -19,14 +19,10 @@ class User(Base):
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # True when account was created with a temp password (org_admin / customer).
-    # Must be changed before the user can access any protected page.
-    # Cleared by the POST /users/me/change-password endpoint.
     must_change_password: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
 
-    # NULL for staff (admin / agent / team_lead) — set for org_admin and customer
     org_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("organisations.id"), nullable=True, default=None
     )

@@ -1,9 +1,3 @@
-"""Authentication routes: login, refresh, logout, forgot/reset password.
-
-Customer self-registration (/auth/register) has been removed.
-Customers are now added by their org_admin via POST /organisations/me/customers.
-"""
-
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import Response as PlainResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,8 +59,6 @@ async def logout(
         # Revoke in DB — ignore errors (invalid/expired token is fine on logout)
         await AuthService(db).logout(refresh_token)
 
-    # Always clear the cookie — must match the attributes used in set_cookie
-    # otherwise the browser ignores the deletion and the cookie stays set
     delete_refresh_cookie(response)
 
 
@@ -76,7 +68,7 @@ async def forgot_password(
     db: AsyncSession = Depends(get_db),
 ):
     await PasswordResetService(db).forgot_password(data.email)
-    return ForgotPasswordResponse()  # always same response — prevents email enumeration
+    return ForgotPasswordResponse()  
 
 
 @router.post("/reset-password", response_model=ResetPasswordResponse)

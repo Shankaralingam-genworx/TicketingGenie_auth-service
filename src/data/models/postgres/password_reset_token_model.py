@@ -1,4 +1,3 @@
-"""Password reset token database model."""
 
 from datetime import datetime, timezone
 

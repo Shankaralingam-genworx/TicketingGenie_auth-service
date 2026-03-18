@@ -67,14 +67,7 @@ class CustomerRepository:
         phone: str | None = None,
         preferred_contact: PreferredContact | None = PreferredContact.EMAIL,
     ) -> Customer:
-        """
-        Create a customer profile for an org-member customer.
-
-        - org_id is REQUIRED — raises ValueError if missing
-        - customer_tier_id comes from org.customer_tier_id — never overridden per customer
-
-        Called exclusively by OrganisationService.add_customer().
-        """
+        
         if not org_id:
             raise ValueError("org_id is required when creating an organisation customer.")
 

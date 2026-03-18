@@ -1,17 +1,3 @@
-"""Organisation routes.
-
-System admin (role=admin):
-  POST  /organisations/            Create org + org_admin account
-  GET   /organisations/            List all organisations
-  GET   /organisations/{id}        Get single organisation
-  PATCH /organisations/{id}        Update organisation details
-
-org_admin (role=org_admin):
-  GET   /organisations/me                              View own org
-  GET   /organisations/me/customers                   List customers in own org
-  POST  /organisations/me/customers                   Add a customer to own org
-  PATCH /organisations/me/customers/{uid}/deactivate  Deactivate a customer
-"""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,13 +56,7 @@ async def add_customer(
     current_user: dict = Depends(require_role("org_admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Creates a customer user + customer profile.
-
-    Customer tier is automatically inherited from the organisation.
-    Temporary password is generated and emailed to the new customer.
-    Customer must change password on first login.
-    """
+ 
     org_id = _get_org_id(current_user)
     return await OrganisationService(db).add_customer(org_id, payload)
 
@@ -133,14 +113,7 @@ async def create_organisation(
     current_user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Atomically creates:
-    1. The Organisation record
-    2. An org_admin user with a temporary password
-
-    The temporary password is emailed to admin_email.
-    The org_admin must change their password on first login.
-    """
+  
     return await OrganisationService(db).create_organisation(data)
 
 

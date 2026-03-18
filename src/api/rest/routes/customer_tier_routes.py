@@ -1,5 +1,3 @@
-"""Customer tier routes — admin manages tiers via these endpoints."""
-
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 

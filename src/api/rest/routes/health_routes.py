@@ -11,14 +11,6 @@ router = APIRouter(tags=["Health"])
 
 @router.get("/health")
 async def health_check():
-    """
-    Health check endpoint.
-
-    Verifies that the service is running AND that the database is reachable.
-    Returns 200 when healthy, 503 when the DB cannot be reached.
-    Used by load balancers, container orchestration liveness/readiness probes,
-    and monitoring systems.
-    """
     try:
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))

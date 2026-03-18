@@ -1,4 +1,3 @@
-"""Role routes: list, create, update, and delete roles."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession

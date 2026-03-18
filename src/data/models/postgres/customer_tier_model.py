@@ -1,9 +1,3 @@
-"""CustomerTier database model.
-
-Replaces the hard-coded CustomerTier enum with a DB table so the system
-admin can add/rename/deactivate tiers without a code deploy.
-"""
-
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, String, Integer, Text

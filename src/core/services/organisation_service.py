@@ -22,7 +22,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants.auth_constants import RoleName
 from src.core.security import hash_password
-from src.core.services.email_service import EmailService
+from src.core.celery.workers.email_tasks import (
+    send_customer_welcome_email,
+    send_org_admin_welcome_email,
+)
 from src.data.repositories.customer_repository import CustomerRepository
 from src.data.repositories.organisation_repository import OrganisationRepository
 from src.data.repositories.refresh_token_repository import RefreshTokenRepository
@@ -96,7 +99,6 @@ class OrganisationService:
         self.role_repo    = RoleRepository(db)
         self.cust_repo    = CustomerRepository(db)
         self.token_repo   = RefreshTokenRepository(db)
-        self.email_svc    = EmailService()
         self.db           = db
 
     # ── System admin: Organisation CRUD ───────────────────────────────────────
@@ -162,7 +164,8 @@ class OrganisationService:
             org_id=org.id,
         )
 
-        await self.email_svc.send_org_admin_welcome(
+        # Fire-and-forget via Celery — non-blocking so the API responds instantly
+        send_org_admin_welcome_email.delay(
             to_email=admin_email,
             name=data.admin_name,
             org_name=data.name,
@@ -271,7 +274,8 @@ class OrganisationService:
             preferred_contact=payload.preferred_contact,
         )
 
-        await self.email_svc.send_customer_welcome(
+        # Fire-and-forget via Celery — non-blocking so the API responds instantly
+        send_customer_welcome_email.delay(
             to_email=customer_email,
             name=payload.name,
             org_name=org.name,

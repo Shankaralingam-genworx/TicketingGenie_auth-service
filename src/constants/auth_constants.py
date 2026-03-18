@@ -1,4 +1,3 @@
-"""Auth-related constants used across the service."""
 
 from enum import Enum
 

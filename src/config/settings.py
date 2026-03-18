@@ -1,13 +1,15 @@
-"""Application settings loaded from environment variables."""
-
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
+from typing import List
 
 _ALLOWED_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}
 
 
 class Settings(BaseSettings):
     """All configuration values for the auth service."""
+
+    # CORS
+    CORS_ALLOW_ORIGINS: List[str] = []
 
     # Database — must use async scheme
     DATABASE_URL: str
@@ -37,6 +39,18 @@ class Settings(BaseSettings):
     FRONTEND_URL: str
 
     # ── Validators ─────────────────────────────────────────────────────────────
+
+    @field_validator("CORS_ALLOW_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """
+        Accept:
+        - JSON array → ["http://a.com","http://b.com"]
+        - Comma string → http://a.com,http://b.com
+        """
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     @field_validator("DATABASE_URL")
     @classmethod

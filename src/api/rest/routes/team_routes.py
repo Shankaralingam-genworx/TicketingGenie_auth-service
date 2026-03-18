@@ -1,10 +1,3 @@
-"""
-Team routes — used by Team Lead and Support Agent portals.
-
-GET /teams/my-agents   Team Lead: list agents in my team
-GET /teams/me          Team Lead / Support Agent: get my team info
-"""
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,8 +21,6 @@ async def my_agents(
 
 @router.get("/me", response_model=TeamDetailResponse)
 async def my_team(
-    # Restricted to roles that actually belong to a team.
-    # Admins, customers, and org_admins have no team and would always get 404.
     current_user: dict = Depends(require_role("team_lead", "support_agent")),
     db: AsyncSession = Depends(get_db),
 ):

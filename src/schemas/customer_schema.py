@@ -11,7 +11,7 @@ from src.schemas.customer_tier_schema import CustomerTierResponse
 class CustomerProfileResponse(BaseModel):
     id:               int
     user_id:          int
-    org_id:           int | None          # nullable — customers without an org are valid
+    org_id:           int | None         
     phone:            str | None
     preferred_contact: PreferredContact | None
     customer_tier_id: int | None

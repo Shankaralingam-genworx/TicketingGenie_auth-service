@@ -6,11 +6,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from src.core.exceptions.auth_exceptions import ForbiddenException, UnauthorizedException
 from src.core.security import decode_token
 
-# Bearer token extractor
 bearer_scheme = HTTPBearer()
 
-# The only endpoint a user with must_change_password=True may call.
-# Everything else is blocked until the password is changed.
 _CHANGE_PASSWORD_PATH_SUFFIX = "/me/change-password"
 
 
@@ -18,15 +15,7 @@ def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> dict:
-    """
-    Decode and validate the JWT access token from the Authorization header.
-    Returns the token payload dict.
-
-    Also enforces must_change_password server-side: if the flag is True the
-    user may only reach POST /users/me/change-password — all other endpoints
-    return 403.  This prevents a user with a temporary password from calling
-    any API endpoint directly, bypassing the frontend guard.
-    """
+   
     try:
         payload = decode_token(credentials.credentials)
     except Exception:
@@ -56,16 +45,6 @@ def get_current_user(
 
 
 def require_role(*roles: str):
-    """
-    Dependency factory that enforces role-based access control.
-
-    Usage:
-        @router.get("/admin", dependencies=[Depends(require_role("admin"))])
-    or:
-        @router.get("/admin")
-        async def endpoint(user=Depends(require_role("admin", "team_lead"))):
-            ...
-    """
 
     def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
         user_role = current_user.get("role")

@@ -57,12 +57,7 @@ class OrganisationCreatedResponse(BaseModel):
 # ── Customer management (org_admin) ───────────────────────────────────────────
 
 class OrgCustomerCreate(BaseModel):
-    """
-    org_admin adds a customer user to their organisation.
 
-    The customer tier is always inherited from the organisation — it is
-    not set per-customer.
-    """
     name:              str
     email:             EmailStr
     phone:             str | None        = None

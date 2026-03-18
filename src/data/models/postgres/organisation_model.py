@@ -1,10 +1,3 @@
-"""Organisation database model.
-
-An Organisation groups customers under a single entity.
-Each org has one org_admin user (role=org_admin) and N customer users.
-The customer tier is set at the org level — all customers inherit it.
-"""
-
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Integer, UniqueConstraint

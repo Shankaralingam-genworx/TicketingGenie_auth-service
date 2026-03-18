@@ -1,4 +1,3 @@
-"""Refresh token database model."""
 
 from datetime import datetime
 
@@ -14,8 +13,6 @@ class RefreshToken(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    # index=True speeds up revoke_all_for_user(user_id) which queries by this column.
-    # ondelete="CASCADE" removes orphan rows automatically when a user is deleted.
     user_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("users.id", ondelete="CASCADE"),

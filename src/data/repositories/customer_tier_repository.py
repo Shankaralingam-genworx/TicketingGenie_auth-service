@@ -69,13 +69,7 @@ class CustomerTierRepository:
         return result.scalar_one()
 
     async def count_organisations_using(self, tier_id: int) -> int:
-        """
-        Return how many organisations reference this tier.
-
-        Must be checked alongside count_customers_using() before deletion —
-        if any organisation still references the tier, the DB FK constraint
-        will raise an IntegrityError and the delete will fail with a 500.
-        """
+      
         from src.data.models.postgres.organisation_model import Organisation
 
         result = await self.db.execute(

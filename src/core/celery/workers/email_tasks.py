@@ -34,7 +34,7 @@ def _smtp_send(to_email: str, subject: str, html_body: str, plain_body: str) -> 
 
 # ── Existing task ──────────────────────────────────────────────────────────────
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=10,queue="auth_email")
 def send_password_reset_email(self, recipient_email: str, reset_link: str) -> None:
     """Send a password reset email. Retries up to 3 times on failure."""
     logger.info(f"[attempt {self.request.retries + 1}/3] Sending reset email → {recipient_email}")
@@ -86,9 +86,78 @@ def send_password_reset_email(self, recipient_email: str, reset_link: str) -> No
         raise self.retry(exc=exc)
 
 
+# ── New task: staff (support_agent / team_lead) welcome ───────────────────────
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=10,queue="auth_email")
+def send_staff_welcome_email(
+    self,
+    to_email: str,
+    name: str,
+    role: str,
+    temp_password: str,
+) -> None:
+    """
+    Send welcome + temp credentials email to a newly created staff member
+    (support_agent or team_lead).
+    Fires asynchronously so the POST /admin/staff response is instant.
+    """
+    logger.info(f"[attempt {self.request.retries + 1}/3] Sending staff welcome → {to_email}")
+    try:
+        role_label = "Support Agent" if role == "support_agent" else "Team Lead"
+        subject    = "Welcome to TicketingGenie — Your Account Details"
+        html_body = f"""
+        <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px;
+                    border:1px solid #e2e8f0;border-radius:12px">
+          <h2 style="color:#1D4ED8;margin-bottom:4px">Welcome to TicketingGenie</h2>
+          <p style="color:#64748B;margin-top:0">Hi <strong>{name}</strong>,</p>
+          <p>An account has been created for you as a <strong>{role_label}</strong>.</p>
+          <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;
+                      padding:20px;margin:20px 0">
+            <p style="margin:0 0 8px;font-size:13px;color:#64748B;text-transform:uppercase;
+                      letter-spacing:.06em;font-weight:700">Your Credentials</p>
+            <p style="margin:4px 0"><strong>Email:</strong> {to_email}</p>
+            <p style="margin:4px 0"><strong>Temporary Password:</strong>
+              <code style="background:#EFF6FF;color:#1D4ED8;padding:2px 8px;
+                           border-radius:4px;font-size:15px">{temp_password}</code>
+            </p>
+          </div>
+          <p>Please log in and <strong>change your password immediately</strong>.</p>
+          <a href="{FRONTEND_URL}/login"
+             style="display:inline-block;background:#1D4ED8;color:white;padding:12px 28px;
+                    border-radius:8px;text-decoration:none;font-weight:600">
+            Log In Now
+          </a>
+          <p style="margin-top:32px;font-size:12px;color:#94A3B8">
+            If you did not expect this email, please contact your administrator.
+          </p>
+        </div>
+        """
+        plain_body = (
+            f"Hi {name},\n\n"
+            f"An account has been created for you as a {role_label} on TicketingGenie.\n\n"
+            f"Email: {to_email}\n"
+            f"Temporary password: {temp_password}\n\n"
+            f"Log in at {FRONTEND_URL}/login and change your password immediately.\n\n"
+            f"If you did not expect this, contact your administrator."
+        )
+        _smtp_send(to_email, subject, html_body, plain_body)
+        logger.info(f"Staff welcome sent → {to_email}")
+
+    except smtplib.SMTPAuthenticationError as exc:
+        logger.error(f"SMTP auth failed: {exc}")
+        raise
+
+    except smtplib.SMTPConnectError as exc:
+        raise self.retry(exc=exc)
+
+    except Exception as exc:
+        logger.error(f"Unexpected error on attempt {self.request.retries + 1}: {exc}")
+        raise self.retry(exc=exc)
+
+
 # ── New task: org_admin welcome ────────────────────────────────────────────────
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=10,queue="auth_email")
 def send_org_admin_welcome_email(
     self,
     to_email: str,
@@ -154,7 +223,7 @@ def send_org_admin_welcome_email(
 
 # ── New task: customer welcome ─────────────────────────────────────────────────
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=10,queue="auth_email")
 def send_customer_welcome_email(
     self,
     to_email: str,
