@@ -1,16 +1,3 @@
-"""
-Admin routes — staff creation, team management.
-
-POST /admin/staff          Create support agent or team lead (sends welcome email)
-GET  /admin/staff          List all staff (agents + leads)
-GET  /admin/staff/:id      Get single staff member
-
-POST /admin/teams          Create a team and assign a team lead
-GET  /admin/teams          List all teams
-GET  /admin/teams/:id      Get team detail
-PATCH /admin/teams/:id     Update team (rename, change lead, add/remove members)
-DELETE /admin/teams/:id    Delete team
-"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -98,7 +85,7 @@ async def get_team(
     return await service.get_team(team_id)
 
 
-@router.patch("/teams/{team_id}", response_model=TeamDetailResponse)
+@router.put("/teams/{team_id}", response_model=TeamDetailResponse)
 async def update_team(
     team_id: int,
     data: UpdateTeamRequest,
