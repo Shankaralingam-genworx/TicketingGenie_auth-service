@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, Request, Response
-from fastapi.responses import Response as PlainResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.utils.auth_utils import set_refresh_cookie, delete_refresh_cookie
 from src.core.services.auth_service import AuthService
 from src.core.services.password_reset_service import PasswordResetService
 from src.data.clients.postgres_client import get_db
@@ -13,6 +11,7 @@ from src.schemas.password_reset_schema import (
     ResetPasswordRequest,
     ResetPasswordResponse,
 )
+from src.utils.auth_utils import delete_refresh_cookie, set_refresh_cookie
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 

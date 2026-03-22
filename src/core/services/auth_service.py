@@ -1,11 +1,4 @@
-"""Business logic for authentication: login, refresh, logout.
-
-Customer self-registration has been removed.  Customers are now created by
-their org_admin via POST /organisations/me/customers.
-"""
-
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.constants.auth_constants import RoleName
 from src.core.exceptions.auth_exceptions import (
     InvalidCredentialsException,
@@ -22,6 +15,10 @@ from src.data.repositories.user_repository import UserRepository
 from src.schemas.auth_schema import AccessTokenResponse, TokenResponse, UserResponse
 from src.utils.auth_utils import get_current_time
 
+import structlog
+from src.observability.logging.logger import get_logger
+
+logger = get_logger(__name__).bind(service="auth-service")
 
 class AuthService:
 
@@ -29,15 +26,22 @@ class AuthService:
         self.user_repo  = UserRepository(db)
         self.token_repo = RefreshTokenRepository(db)
 
-    # ── Login ──────────────────────────────────────────────────────────────────
+    # Login 
 
     async def login(self, email: str, password: str) -> tuple[TokenResponse, str]:
-        # Normalise email to lowercase before lookup — matches storage normalisation
+        
+        logger.info("login_flow_started")
         user = await self.user_repo.get_by_email(email)
+
         if not user or not verify_password(password, user.password_hash):
+            logger.warning("login_failed_invalid_credentials")
             raise InvalidCredentialsException()
         if not user.is_active:
+            logger.warning("login_failed_inactive_account", user_id=user.id)
             raise InvalidCredentialsException("Account is deactivated")
+        
+        structlog.contextvars.bind_contextvars(user_id=user.id)
+        logger.info("login_success", user_id=user.id)
 
         customer_tier, team_id = self._resolve_claims(user)
 
@@ -51,52 +55,56 @@ class AuthService:
             must_change_password=user.must_change_password,
         )
 
-    # ── Refresh ────────────────────────────────────────────────────────────────
+    #  Refresh
 
     async def refresh_access_token(
         self, refresh_token: str
     ) -> tuple[AccessTokenResponse, str]:
-        """
-        Refresh token rotation.
+       
+        logger.info("refresh_token_flow_started")
 
-        All dynamic claims (must_change_password, is_active, role, team_id,
-        customer_tier) are re-derived from a fresh DB read on every refresh.
-        This ensures that:
-          - Password changes are reflected immediately on the next refresh.
-          - Deactivated accounts are blocked.
-          - Team reassignments are reflected without a full re-login.
-        """
         payload = decode_token(refresh_token)
 
         if payload.get("type") != "refresh":
+            logger.warning("refresh_token_invalid_type")
             raise InvalidTokenException("Not a refresh token")
 
         jti = payload.get("jti")
         if not jti:
+            logger.warning("refresh_token_missing_jti")
             raise InvalidTokenException("Refresh token missing jti")
 
         record = await self.token_repo.get_by_jti(jti)
         if not record:
+            logger.warning("refresh_token_not_found")
             raise InvalidTokenException("Refresh token not found")
         if record.revoked:
+            logger.warning("refresh_token_revoked")
             raise InvalidTokenException("Refresh token already revoked")
         if record.expires_at < get_current_time():
+            logger.warning("refresh_token_expired")
             raise InvalidTokenException("Refresh token expired")
 
         # Rotate — revoke the used token before issuing a new one
         await self.token_repo.revoke_by_jti(jti)
+        logger.info("refresh_token_revoked")
 
         # Fresh DB read — never use stale token claims for anything that can change
         user_id = int(payload["sub"])
         user    = await self.user_repo.get_by_id(user_id)
 
         if not user:
+            logger.warning("refresh_token_user_not_found")
             raise InvalidTokenException("User no longer exists")
         if not user.is_active:
+            logger.warning("refresh_token_user_inactive")
             raise InvalidTokenException("Account is deactivated")
 
         # Re-derive dynamic claims from current DB state
         customer_tier, team_id = self._resolve_claims(user)
+
+        structlog.contextvars.bind_contextvars(user_id=user.id)
+        logger.info("refresh_token_validated")
 
         token_response, new_refresh_token = await self._issue_tokens(
             user_id=user.id,
@@ -105,8 +113,10 @@ class AuthService:
             customer_tier=customer_tier,
             team_id=team_id,
             org_id=user.org_id,
-            must_change_password=user.must_change_password,  # always from DB
+            must_change_password=user.must_change_password, 
         )
+
+        logger.info("refresh_token_issued")
 
         return (
             AccessTokenResponse(
@@ -116,21 +126,23 @@ class AuthService:
             new_refresh_token,
         )
 
-    # ── Logout ─────────────────────────────────────────────────────────────────
-
+    #  Logout 
     async def logout(self, refresh_token: str | None) -> None:
         if not refresh_token:
-            return  # already logged out — treat as no-op
+            logger.info("logout_no_token_provided")
+            return  
         try:
             payload = decode_token(refresh_token)
         except Exception:
-            return  # invalid/expired token on logout is fine
+            logger.warning("logout_invalid_token")
+            return 
 
         jti = payload.get("jti")
         if jti:
             await self.token_repo.revoke_by_jti(jti)
+            logger.info("logout_success")
 
-    # ── Private helpers ────────────────────────────────────────────────────────
+    #  Private helpers 
 
     @staticmethod
     def _resolve_claims(user) -> tuple[str | None, int | None]:

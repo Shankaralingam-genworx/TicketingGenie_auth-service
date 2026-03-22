@@ -1,35 +1,63 @@
-"""Request/response logging middleware — logs to terminal."""
+"""Request/response logging middleware — structured + request tracing."""
 
 import time
 import uuid
 
+import structlog
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.observability.logging.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger(__name__).bind(service="auth-service")
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """Logs each request with method, path, status code, and duration."""
 
     async def dispatch(self, request: Request, call_next):
-        request_id = str(uuid.uuid4())[:8]
+        # Generate request_id
+        request_id = str(uuid.uuid4())
+
+        # Bind request_id globally 
+        structlog.contextvars.bind_contextvars(request_id=request_id)
+
         start = time.perf_counter()
 
+        # Request start log
         logger.info(
-            f"[{request_id}] --> {request.method} {request.url.path}"
-            + (f"?{request.url.query}" if request.url.query else "")
+            "request_start",
+            method=request.method,
+            path=request.url.path,
+            query=str(request.url.query),
         )
 
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+
+        except Exception as e:
+            # Error log
+            logger.exception(
+                "request_failed",
+                method=request.method,
+                path=request.url.path,
+                error=str(e),
+            )
+            raise
 
         duration_ms = (time.perf_counter() - start) * 1000
+
+        # Request end log
         logger.info(
-            f"[{request_id}] <-- {request.method} {request.url.path} "
-            f"| status={response.status_code} | {duration_ms:.1f}ms"
+            "request_end",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            duration_ms=round(duration_ms, 2),
         )
+
+        # Clear context (important for async safety)
+        structlog.contextvars.clear_contextvars()
 
         return response
 

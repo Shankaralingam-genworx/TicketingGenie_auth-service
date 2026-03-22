@@ -53,8 +53,5 @@ async def delete_tier(
     current_user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Delete a customer tier. Admin only.
-    Blocked if any customers are currently assigned this tier.
-    """
+    
     await CustomerTierService(db).delete(tier_id)

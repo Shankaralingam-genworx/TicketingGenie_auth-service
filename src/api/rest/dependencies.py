@@ -18,8 +18,8 @@ def get_current_user(
    
     try:
         payload = decode_token(credentials.credentials)
-    except Exception:
-        raise UnauthorizedException("Invalid or expired access token")
+    except Exception as err:
+        raise UnauthorizedException("Invalid or expired access token") from err
 
     if payload.get("type") != "access":
         raise UnauthorizedException("Not an access token")
