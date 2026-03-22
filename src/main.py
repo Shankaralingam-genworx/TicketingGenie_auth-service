@@ -1,30 +1,45 @@
-"""Application entry point."""
+"""Entry point for the Auth Service."""
 
 from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI
 
-from src.observability.logging.logger import get_logger, setup_logging
-from src.api.rest.app import create_app
-from src.init_db import init_database         
+from src.observability.logging.logger import setup_logging, get_logger
+from src.init_db import init_database
+
 
 setup_logging()
-logger = get_logger(__name__)
+logger = get_logger(__name__).bind(service="auth-service")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown logic."""
-    logger.info("Starting Ticketing Genie Auth Service...")
+    logger.info("service_starting")
 
-    await init_database()                    
+    # Initialize DB
+    await init_database()
 
-    logger.info("Auth Service is ready at http://localhost:8001")
-    logger.info("API docs available at http://localhost:8001/docs")
-
+    logger.info("service_ready", docs_url="/docs")
     yield
 
-    logger.info("Auth Service shutting down.")
+    logger.info("service_stopping")
 
+
+
+from src.api.rest.app import create_app  # noqa: E402
 
 app: FastAPI = create_app()
 app.router.lifespan_context = lifespan
+
+
+if __name__ == "__main__":
+    from src.config.settings import settings
+
+    uvicorn.run(
+        "src.main:app",
+        host="0.0.0.0",
+        port=settings.APP_PORT,
+        reload=settings.APP_ENV == "development",
+        log_config=None,  
+    )

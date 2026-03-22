@@ -7,16 +7,16 @@ from src.api.middleware.cors import add_cors_middleware
 from src.api.middleware.error_handler import add_error_handlers
 from src.api.middleware.logging import add_logging_middleware
 from src.api.rest.routes import (
+    admin_routes,
     auth_routes,
     health_routes,
     role_routes,
-    user_routes,
-    admin_routes,
     team_routes,
+    user_routes,
 )
-from src.api.rest.routes.user_lookup_routes import router as user_lookup_router
 from src.api.rest.routes.customer_tier_routes import router as customer_tier_router
 from src.api.rest.routes.organisation_routes import router as organisation_router
+from src.api.rest.routes.user_lookup_routes import router as user_lookup_router
 
 
 def create_app() -> FastAPI:

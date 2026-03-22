@@ -1,4 +1,4 @@
-"""Business logic for forgot password and reset password flows."""
+"""Forgot-password and reset-password flows."""
 
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -12,29 +12,29 @@ from src.data.repositories.refresh_token_repository import RefreshTokenRepositor
 from src.data.repositories.user_repository import UserRepository
 from src.core.celery.workers.email_tasks import send_password_reset_email
 from src.utils.auth_utils import get_current_time
+from src.observability.logging.logger import get_logger
+
+logger = get_logger(__name__).bind(service="auth-service")
 
 
 class PasswordResetService:
 
     def __init__(self, db: AsyncSession):
-        self.user_repo        = UserRepository(db)
-        self.reset_token_repo = PasswordResetTokenRepository(db)
+        self.user_repo          = UserRepository(db)
+        self.reset_token_repo   = PasswordResetTokenRepository(db)
         self.refresh_token_repo = RefreshTokenRepository(db)
 
     async def forgot_password(self, email: str) -> None:
-        """
-        Always returns without error to prevent email enumeration.
-        Sends a reset link only when the email exists in the system.
+        """Silent on unknown email — prevents email enumeration."""
+        logger.info("forgot_password_started")
 
-        Invalidates any previous unused reset tokens for this user so that
-        only the latest link is valid.
-        """
         user = await self.user_repo.get_by_email(email)
         if not user:
-            return  # silent — do not reveal whether the email exists
+            # Log at debug only — don't expose whether the email exists
+            logger.debug("forgot_password_email_not_found")
+            return
 
-        # Revoke all outstanding unused tokens before creating a new one
-        # so that old links cannot be used after a new request is made.
+        # Invalidate old tokens so only the latest link works
         await self.reset_token_repo.revoke_all_for_user(user.id)
 
         token      = secrets.token_urlsafe(32)
@@ -44,38 +44,41 @@ class PasswordResetService:
         await self.reset_token_repo.create(user.id, token, expires_at)
 
         reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+        logger.info("forgot_password_sending_email", user_id=user.id)
 
-        # Fire-and-forget via Celery — non-blocking
         send_password_reset_email.delay(user.email, reset_link)
 
+        logger.info("forgot_password_email_sent", user_id=user.id)
+
     async def reset_password(self, token: str, new_password: str) -> None:
-        """
-        Validates the reset token, updates the password (via the repo so that
-        must_change_password is cleared), marks the token used, and revokes
-        all active refresh tokens.
-        """
+        """Validate token, update password, revoke all active sessions."""
+        logger.info("reset_password_started")
+
         record = await self.reset_token_repo.get_by_token(token)
 
         if not record:
+            logger.warning("reset_password_token_invalid")
             raise InvalidTokenException("Invalid or expired reset token")
+
         if record.used:
+            logger.warning("reset_password_token_already_used")
             raise InvalidTokenException("Reset token has already been used")
+
         if record.expires_at < datetime.now(timezone.utc):
+            logger.warning("reset_password_token_expired")
             raise InvalidTokenException("Reset token has expired")
 
-        # Verify the user still exists
         user = await self.user_repo.get_by_id(record.user_id)
         if not user:
+            logger.warning("reset_password_user_not_found", user_id=record.user_id)
             raise UserNotFoundException("User account no longer exists.")
 
-        # Use update_password() — this also clears must_change_password=False,
-        # which is critical so that a reset does not leave the user stuck in the
-        # forced-change-password loop on next login.
         from src.utils.password_utils import hash_password
         await self.user_repo.update_password(user.id, hash_password(new_password))
 
-        # One-time use — mark before committing
         await self.reset_token_repo.mark_used(record)
 
-        # Invalidate all active sessions — force re-login with new password
+        # Force re-login — all existing sessions are now invalid
         await self.refresh_token_repo.revoke_all_for_user(record.user_id)
+
+        logger.info("reset_password_success", user_id=user.id)

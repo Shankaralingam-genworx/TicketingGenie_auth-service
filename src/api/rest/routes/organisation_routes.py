@@ -6,18 +6,18 @@ from src.api.rest.dependencies import require_role
 from src.core.services.organisation_service import OrganisationService
 from src.data.clients.postgres_client import get_db
 from src.schemas.organisation_schema import (
-    OrgCustomerCreate,
-    OrgCustomerResponse,
     OrganisationCreate,
     OrganisationCreatedResponse,
     OrganisationResponse,
     OrganisationUpdate,
+    OrgCustomerCreate,
+    OrgCustomerResponse,
 )
 
 router = APIRouter(prefix="/organisations", tags=["Organisations"])
 
 
-# ── org_admin: self-service portal ────────────────────────────────────────────
+# ── org_admin ─────────
 
 @router.get(
     "/me",
@@ -75,7 +75,7 @@ async def deactivate_customer(
     return await OrganisationService(db).deactivate_customer(org_id, customer_user_id)
 
 
-# ── Helper ─────────────────────────────────────────────────────────────────────
+# ── Helper ────
 
 def _get_org_id(current_user: dict) -> int:
     """Extract org_id from JWT claims; raise 403 if missing."""
@@ -88,8 +88,7 @@ def _get_org_id(current_user: dict) -> int:
     return int(org_id)
 
 
-# ── System admin: Organisation CRUD ───────────────────────────────────────────
-
+# ── System admin: Organisation CRUD ────
 @router.get(
     "/",
     response_model=list[OrganisationResponse],

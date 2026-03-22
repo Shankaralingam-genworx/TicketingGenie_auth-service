@@ -12,12 +12,12 @@ from src.data.clients.postgres_client import AsyncSessionLocal, create_tables
 from src.data.models.postgres.customer_tier_model import CustomerTier
 from src.data.models.postgres.role_model import Role
 from src.data.models.postgres.user_model import User
-from src.observability.logging.logger import get_logger, setup_logging
+from src.observability.logging.logger import get_logger
 from src.utils.auth_utils import get_current_time
 from src.utils.password_utils import hash_password
 
-setup_logging()
-logger = get_logger("init_db")
+
+logger = get_logger("init_db").bind(service="auth-service")
 
 # ---------------------------------------------------------------------------
 # Seed data
@@ -69,6 +69,8 @@ USERS = [
 
 
 async def seed_roles(db: AsyncSession) -> Dict[str, int]:
+
+    logger.info("seeding_roles_started")
     role_map: Dict[str, int] = {}
 
     for name in ROLES:
@@ -79,9 +81,17 @@ async def seed_roles(db: AsyncSession) -> Dict[str, int]:
             role = Role(name=name)
             db.add(role)
             await db.flush()
-            logger.info(f"[+] Role created : {name:<15} id={role.id}")
+            logger.info(
+                        "role_created",
+                        role=name,
+                        role_id=role.id,
+            )
         else:
-            logger.info(f"[=] Role exists  : {name:<15} id={role.id}")
+            logger.info(
+                "role_exists",
+                role=name,
+                role_id=role.id,
+            )
 
         role_map[name] = role.id
 
@@ -89,6 +99,9 @@ async def seed_roles(db: AsyncSession) -> Dict[str, int]:
 
 
 async def seed_tiers(db: AsyncSession) -> None:
+
+    logger.info("seeding_tiers_started")
+
     for t in TIERS:
         result = await db.execute(
             select(CustomerTier).where(CustomerTier.name == t["name"])
@@ -99,18 +112,32 @@ async def seed_tiers(db: AsyncSession) -> None:
             tier = CustomerTier(name=t["name"], description=t["description"])
             db.add(tier)
             await db.flush()
-            logger.info(f"[+] Tier created : {t['name']:<15} id={tier.id}")
+            logger.info(
+                        "tier_created",
+                        tier=t["name"],
+                        tier_id=tier.id,
+            )
         else:
-            logger.info(f"[=] Tier exists  : {t['name']:<15} id={tier.id}")
+            logger.info(
+                "tier_exists",
+                tier=t["name"],
+                tier_id=tier.id,
+            )
 
 
 async def seed_users(db: AsyncSession, role_map: Dict[str, int]) -> None:
+
+    logger.info("seeding_users_started")
+
     for data in USERS:
         result = await db.execute(select(User).where(User.email == data["email"]))
         existing = result.scalar_one_or_none()
 
         if existing:
-            logger.info(f"[=] User exists  : {data['email']}")
+            logger.info(
+                        "user_exists",
+                         user_id=existing.id,
+                     )
             continue
 
         user = User(
@@ -127,9 +154,10 @@ async def seed_users(db: AsyncSession, role_map: Dict[str, int]) -> None:
         await db.flush()
 
         logger.info(
-            f"[+] {data['role']:<15} created: {data['name']:<20} "
-            f"<{data['email']}> id={user.id}"
-        )
+                "user_created",
+                user_id=user.id,
+                role=data["role"],
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -139,13 +167,12 @@ async def seed_users(db: AsyncSession, role_map: Dict[str, int]) -> None:
 
 async def init_database() -> None:
     """Initialize DB (tables + seed data). Safe + reusable."""
-    logger.info("=" * 60)
-    logger.info("Initializing database...")
-    logger.info("=" * 60)
+
+    logger.info("db_init_started")
 
     try:
         await create_tables()
-        logger.info("Tables created/verified.")
+        logger.info("db_tables_ready")
 
         async with AsyncSessionLocal() as db:
             role_map = await seed_roles(db)
@@ -159,10 +186,10 @@ async def init_database() -> None:
 
             await db.commit()
 
-        logger.info("Database initialization complete.")
+        logger.info("db_init_completed")
 
     except Exception as e:
-        logger.exception("Database initialization FAILED ❌")
+        logger.exception("db_init_failed", error=str(e))
         raise
 
 
@@ -173,14 +200,6 @@ async def init_database() -> None:
 
 async def main() -> None:
     await init_database()
-
-    logger.info("")
-    logger.info("Seed credentials:")
-    logger.info("  Admin         : admin@ticketinggenie.com / Admin@123")
-    logger.info("  Team Lead     : shankar077123@gmail.com  / Shankar@123")
-    logger.info("  Support Agent : shankaralingams2004@gmail.com / Shankar@123")
-    logger.info("=" * 60)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

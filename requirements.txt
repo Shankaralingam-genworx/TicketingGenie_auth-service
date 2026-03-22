@@ -9,6 +9,7 @@ pydantic-settings==2.2.1
 python-dotenv==1.0.1
 python-multipart==0.0.9
 structlog==24.4.0
+ruff
 
 # Celery + Redis broker
 celery[redis]==5.4.0

@@ -15,7 +15,7 @@ async def health_check():
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
         return {"status": "ok", "service": "ticketing-auth-service"}
-    except Exception as exc:
+    except Exception:
         return JSONResponse(
             status_code=503,
             content={
