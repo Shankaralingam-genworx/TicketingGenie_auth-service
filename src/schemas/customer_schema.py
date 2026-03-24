@@ -1,47 +1,36 @@
-"""Pydantic schemas for customer registration and profile."""
+"""Pydantic schemas for customer profile."""
 
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, field_validator, Field
-from src.constants.customer_constants import CustomerTier, PreferredContact
 
+from pydantic import BaseModel
 
-class CustomerRegisterRequest(BaseModel):
-    name: str = Field(..., description="Full name of the customer")
-    email: EmailStr = Field(..., description="Customer email")
-    password: str = Field(..., description="Password, minimum 8 characters")
-    phone: str | None = Field(None, description="Optional phone number")
-    customer_tier: CustomerTier = Field(
-        CustomerTier.BASIC, description="Customer tier: BASIC, PREMIUM, STANDARD"
-    )
-    preferred_contact: PreferredContact = Field(
-        PreferredContact.EMAIL, description="Preferred contact method: EMAIL or WEB"
-    )
-
-    @field_validator("password")
-    @classmethod
-    def password_min_length(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+from src.constants.customer_constants import PreferredContact
+from src.schemas.customer_tier_schema import CustomerTierResponse
 
 
 class CustomerProfileResponse(BaseModel):
-    id: int
-    user_id: int
-    phone: str | None
-    customer_tier: CustomerTier
-    preferred_contact: PreferredContact
+    id:               int
+    user_id:          int
+    org_id:           int | None         
+    phone:            str | None
+    preferred_contact: PreferredContact | None
+    customer_tier_id: int | None
+    tier:             CustomerTierResponse | None = None
 
     model_config = {"from_attributes": True}
 
 
 class CurrentUserResponse(BaseModel):
-    id: int
-    name: str
-    email: str
-    role: str
-    is_active: bool
-    created_at: datetime
-    customer_profile: CustomerProfileResponse | None = None
+    """Full profile returned by GET /users/me for any role."""
+    id:                   int
+    name:                 str
+    email:                str
+    role:                 str
+    is_active:            bool
+    must_change_password: bool
+    org_id:               int | None
+    org_name:             str | None
+    created_at:           datetime
+    customer_profile:     CustomerProfileResponse | None = None
 
     model_config = {"from_attributes": True}

@@ -1,46 +1,28 @@
-"""Logging configuration for the auth service using structlog."""
-
 import logging
 import sys
 import structlog
 
-
-def setup_logging() -> None:
-    """
-    Configure structured logging for the application.
-    Logs are written to stdout (Docker / terminal friendly).
-    """
-
-    # Configure standard logging first
+def setup_logging():
     logging.basicConfig(
         format="%(message)s",
-        stream=sys.stdout,
         level=logging.INFO,
     )
 
-    # Silence noisy libraries
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-
-    # Configure structlog
     structlog.configure(
         processors=[
-            structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_logger_name,  
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(),  #JSON output (production ready)
+            structlog.processors.JSONRenderer(),
         ],
-        context_class=dict,
+        wrapper_class=structlog.stdlib.BoundLogger,   
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
 
 
-def get_logger(name: str) -> structlog.stdlib.BoundLogger:
-    """
-    Get a structured logger instance.
-    """
+def get_logger(name: str):
     return structlog.get_logger(name)

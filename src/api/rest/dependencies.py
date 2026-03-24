@@ -1,47 +1,50 @@
 """FastAPI dependencies for authentication and authorization."""
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.core.exceptions.auth_exceptions import ForbiddenException, UnauthorizedException
 from src.core.security import decode_token
 
-# Bearer token extractor
 bearer_scheme = HTTPBearer()
+
+_CHANGE_PASSWORD_PATH_SUFFIX = "/me/change-password"
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> dict:
-    """
-    Decode and validate the JWT access token from the Authorization header.
-    Returns the token payload dict: { sub, role, exp, type }.
-    Raises UnauthorizedException if token is missing or invalid.
-    """
+   
     try:
         payload = decode_token(credentials.credentials)
-        # print(payload)
-    except Exception as e:
-        # print("JWT ERROR:", str(e))
-        raise UnauthorizedException("Invalid or expired access token")
+    except Exception as err:
+        raise UnauthorizedException("Invalid or expired access token") from err
 
     if payload.get("type") != "access":
         raise UnauthorizedException("Not an access token")
+
+    # Validate sub claim is present and is a valid integer string
+    sub = payload.get("sub")
+    if not sub:
+        raise UnauthorizedException("Invalid token: missing subject claim.")
+    try:
+        int(sub)
+    except (ValueError, TypeError):
+        raise UnauthorizedException("Invalid token: malformed subject claim.")
+
+    # Server-side enforcement of the forced password-change gate.
+    # The frontend enforces this too, but a direct API caller must also be blocked.
+    if payload.get("must_change_password"):
+        if not request.url.path.endswith(_CHANGE_PASSWORD_PATH_SUFFIX):
+            raise ForbiddenException(
+                "You must change your password before accessing this resource."
+            )
 
     return payload
 
 
 def require_role(*roles: str):
-    """
-    Dependency factory that enforces role-based access control.
-
-    Usage:
-        @router.get("/admin", dependencies=[Depends(require_role("ADMIN"))])
-    or:
-        @router.get("/admin")
-        async def endpoint(user=Depends(require_role("ADMIN", "TEAM_LEAD"))):
-            ...
-    """
 
     def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
         user_role = current_user.get("role")

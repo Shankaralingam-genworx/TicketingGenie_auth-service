@@ -1,42 +1,45 @@
-"""Application entry point."""
+"""Entry point for the Auth Service."""
 
 from contextlib import asynccontextmanager
 
+import uvicorn
 from fastapi import FastAPI
 
-from src.core.services.role_service import RoleService
-from src.data.clients.postgres_client import AsyncSessionLocal, create_tables
-from src.observability.logging.logger import get_logger, setup_logging
+from src.observability.logging.logger import setup_logging, get_logger
+from src.init_db import init_database
+
 
 setup_logging()
-logger = get_logger(__name__)
+logger = get_logger(__name__).bind(service="auth-service")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown logic."""
-    logger.info("Starting Ticketing Genie Auth Service...")
+    logger.info("service_starting")
 
-    # Create DB tables (no alembic — direct table creation)
-    await create_tables()
-    logger.info("Database tables created/verified.")
+    # Initialize DB
+    await init_database()
 
-    # Seed default roles
-    async with AsyncSessionLocal() as session:
-        role_service = RoleService(session)
-        await role_service.seed_roles()
-        await session.commit()
-    logger.info("Default roles seeded.")
-
-    logger.info("Auth Service is ready at http://0.0.0.0:8000")
-    logger.info("API docs available at http://0.0.0.0:8000/docs")
+    logger.info("service_ready", docs_url="/docs")
     yield
-    logger.info("Auth Service shutting down.")
+
+    logger.info("service_stopping")
 
 
-# Import here to avoid circular imports at module level
+
 from src.api.rest.app import create_app  # noqa: E402
 
-app = create_app()
+app: FastAPI = create_app()
 app.router.lifespan_context = lifespan
 
+
+if __name__ == "__main__":
+    from src.config.settings import settings
+
+    uvicorn.run(
+        "src.main:app",
+        host="0.0.0.0",
+        port=settings.APP_PORT,
+        reload=settings.APP_ENV == "development",
+        log_config=None,  
+    )

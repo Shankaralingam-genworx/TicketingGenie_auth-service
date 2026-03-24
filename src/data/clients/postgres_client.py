@@ -1,4 +1,5 @@
-"""Async PostgreSQL database client using SQLAlchemy."""
+
+from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -10,6 +11,8 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,  # Set True to log SQL queries
     pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
 )
 
 # Session factory
@@ -25,7 +28,7 @@ class Base(DeclarativeBase):
     pass
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency that provides a database session."""
     async with AsyncSessionLocal() as session:
         try:
@@ -35,8 +38,11 @@ async def get_db() -> AsyncSession:
             await session.rollback()
             raise
 
-
 async def create_tables() -> None:
-    """Create all tables on startup (used instead of migrations for now)."""
+    """Create all auth service tables on startup using SQLAlchemy.
+    Import all models before calling so SQLAlchemy registers them with Base.
+    """
+    import src.data.models.postgres  # noqa: F401
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
